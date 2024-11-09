@@ -61,6 +61,10 @@ void InitializeBoard(Board* board) {
             }
         }
     }
+    //checking if the king movement is working!!!
+    board->board[5][2]->isKing = true;
+    board->board[1][6] =NULL;
+
 }
 
 void ConvertAlgebraicToIndices(const char* position, int* x, int* y) {
@@ -88,9 +92,23 @@ void PrintBoard(Board* board) {
             if (board->board[i][j] == NULL) {
                 printf("      |"); // Empty square, wider
             } else if (board->board[i][j]->color == BLACK) {
-                printf("   B  |"); // Black piece
+                if(board->board[i][j]->isKing)
+                {
+                    printf("  K-B |"); // White piece
+                }
+                else
+                {
+                    printf("   B  |"); // Black piece
+                }
             } else if (board->board[i][j]->color == WHITE) {
-                printf("   W  |"); // White piece
+                if(board->board[i][j]->isKing)
+                {
+                    printf("  K-W |"); // White King piece
+                }
+                else
+                {
+                    printf("   W  |"); // White piece
+                }
             }
         }
         printf(" %d\n", i); // Row number on the other side
@@ -130,29 +148,27 @@ void InitializePlayers(Player *player1, Player *player2) {
 
 bool IsMoveValid(Board* board, int startX, int startY, int endX, int endY) {
     Piece* piece = board->board[startX][startY];
-    if (!piece || board->board[endX][endY] != NULL) {
-        return false; // Start must have a piece, end must be empty
-    }
+    if (!piece) return false; // No piece at the starting position
 
     int dx = endX - startX;
-    int dy = abs(endY - startY);
+    int dy = endY - startY;
 
-    // Regular piece movement: must move one square diagonally or two squares for capture
     if (!piece->isKing) {
+        // Regular piece movement logic here
         int direction = (piece->color == WHITE) ? -1 : 1;
 
         // Regular move (1 square diagonally)
-        if (dx == direction && dy == 1) {
-            return true;
+        if (dx == direction && abs(dy) == 1) {
+            return board->board[endX][endY] == NULL; // Only allow move if the end is empty
         }
 
         // Capture move (2 squares diagonally)
-        if (dx == 2 * direction && dy == 2 &&
-            board->board[startX + direction][startY + (endY - startY) / 2] != NULL &&
-            board->board[startX + direction][startY + (endY - startY) / 2]->color != piece->color) {
+        if (dx == 2 * direction && abs(dy) == 2 &&
+            board->board[startX + direction][startY + dy / 2] != NULL &&
+            board->board[startX + direction][startY + dy / 2]->color != piece->color) {
             // Capture the opponent's piece
-            free(board->board[startX + direction][startY + (endY - startY) / 2]);
-            board->board[startX + direction][startY + (endY - startY) / 2] = NULL;
+            free(board->board[startX + direction][startY + dy / 2]);
+            board->board[startX + direction][startY + dy / 2] = NULL;
             return true;
         }
     } else { // King movement: can move multiple squares diagonally
@@ -170,11 +186,25 @@ bool IsMoveValid(Board* board, int startX, int startY, int endX, int endY) {
                 x += stepX;
                 y += stepY;
             }
-            return true;
+
+            // If destination has opponent’s piece, allow capture
+            if (board->board[endX][endY] != NULL &&
+                board->board[endX][endY]->color != piece->color) {
+                // Capture opponent’s piece
+                free(board->board[endX][endY]);
+                board->board[endX][endY] = NULL;
+                return true;
+            }
+
+            // Move without capture if destination is empty
+            return board->board[endX][endY] == NULL;
         }
     }
     return false;
 }
+
+
+
 
 
 void MovePiece(Board* board, int startX, int startY, int endX, int endY) {
@@ -193,7 +223,7 @@ void MovePiece(Board* board, int startX, int startY, int endX, int endY) {
 void PlayTurn(Board* board, Player* player) {
     int startX, startY, endX, endY;
 
-    printf("Player %s, enter move (startX startY endX endY): ",
+    printf("Player %s, enter move (startY startX endY endX): ",
            player->color == WHITE ? "WHITE" : "BLACK");
     scanf("%d %d %d %d", &startX, &startY, &endX, &endY);
 
